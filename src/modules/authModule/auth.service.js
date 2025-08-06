@@ -1,0 +1,271 @@
+import { providers, UserModel } from "../../DB/user.model.js";
+import { sucessRes } from "../../utils/sucess.res.js";
+import { findById, findOne } from "../../DB/DBServices.js";
+import jwt from "jsonwebtoken";
+import { decodeToken } from "../../middleware/auth.middleware.js";
+import { types } from "../../middleware/auth.middleware.js";
+import CryptoJS from "crypto-js";
+import bcrypt from "bcrypt";
+import { compare } from "../../utils/bcrypt.js";
+import { Roles } from "../../DB/user.model.js";
+import { Template } from "../../utils/sendEmail/generateHTML.js";
+import { customAlphabet, nanoid } from "nanoid";
+import { sendEmail } from "../../utils/sendEmail/sendEmail.js";
+import { createOtp, emailEmitter } from "../../utils/sendEmail/emailEvents.js";
+import { hash } from "../../utils/bcrypt.js";
+import { ExpiredError, NotFoundError } from "../../utils/Error.js";
+import { OAuth2Client } from "google-auth-library";
+import { loginSchema } from "./auth.validation.js";
+const client= new OAuth2Client()
+
+
+
+
+//login
+export const login = async (req, res, next) => {
+  const { email, password } = req.body;
+
+  const user = await UserModel.findOne({ email });
+  if (!user) {
+    throw new Error("email is not correct", { cause: 400 });
+  }
+  if(!user.confirmed){
+    return next(new Error("email not confirmed", { cause: 400 })); 
+  }
+  if(user.provider==providers.google){
+    return next(new Error("use google login ")); 
+  }
+  if (!compare(password, user.password)) {
+    return next(new Error("password not correct", { cause: 400 }));
+  }
+
+  let accessSignature = "";
+  let refreshSignature = "";
+
+  switch (user.role) {
+    case Roles.admin:
+      accessSignature = process.env.admin_access_signature;
+      refreshSignature = process.env.admin_refresh_signature;
+      break;
+    case Roles.user:
+      accessSignature = process.env.user_access_signature;
+      refreshSignature = process.env.user_refresh_signature;
+      break;
+  }
+
+  const payload = {
+    _id: user._id,
+    email: email,
+    phone: user.phone,
+    role: user.role,
+    credentialChangeAt :user.credentialChangeAt 
+  };
+
+  const accesstoken = jwt.sign(payload, accessSignature, {
+    expiresIn: `60000 ms`,
+  });
+
+  const refreshToken = jwt.sign(payload, refreshSignature, {
+    expiresIn: `7 d`,
+  });
+ 
+  sucessRes({ res, data: { accesstoken, refreshToken }, status: 201 });
+};
+
+
+
+
+
+export const refreshToken = async (req, res, next) => {
+  try {
+    const { authorization } = req.headers;
+
+    const user = await decodeToken({
+      tokenType: types.refresh,
+      token: authorization,
+      next,
+    });
+
+    let accessSignature = "";
+
+    switch (user.role) {
+      case Roles.admin:
+        accessSignature = process.env.admin_access_signature;
+
+        break;
+      case Roles.user:
+        accessSignature = process.env.user_access_signature;
+
+        break;
+    }
+
+    const accessToken = jwt.sign(
+      {
+        _id: user._id,
+        email: user.email,
+      },
+      accessSignature,
+      { expiresIn: "20s" }
+    );
+
+    sucessRes({
+      res,
+      data: { accessToken },
+      status: 202,
+    });
+  } catch (error) {
+    next(new Error(error.message, { cause: 500 }));
+  }
+};
+
+
+export const confirmEmail = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp ) {
+      return res.status(400).json({ message: "Email and code are required" });
+    }
+
+    const user = await UserModel.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if(user.emailOtp.expiredIn<= Date.now()){
+     return next(new Error("otp expired... please reconfirm your email"))
+    }
+  
+    if (!compare(otp,user.emailOtp.otp)) {
+      return res.status(400).json({ message: "Invalid confirmation code" });
+    }
+  await UserModel.updateOne({_id:user._id},{
+    confirmed:true,
+    $unset:{
+      emailOtp:""
+    }
+  })
+    return res.status(200).json({ message: "Email confirmed successfully" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+export const forgetPass=async(req,res,next)=>{
+  const{email}=req.body
+  const user=await UserModel.findOne({email})
+  if(!user){
+    return next(new Error("user not found",{cause:404}))
+  }
+  if(!user.confirmed){
+        return next(new Error("Email not confirmed",{cause:400}))
+  }
+
+ const otp =createOtp()
+ user.passwordOtp={
+  otp:hash(otp),
+  expiredIn:Date.now()+60*1000
+ }
+ console.log(user);
+ 
+ await user.save()
+ emailEmitter.emit('sendPasswordOTP',{
+  email:user.email,
+  userName:user.name,
+  otp:otp
+ })
+ sucessRes({res,status:202})
+}
+
+export const changePass=async(req,res,next)=>{
+  const{email,otp,newPassword}=req.body
+  const user=await UserModel.findOne({email})
+  if(!user){
+    return next(new Error("user not found ",{cause:404}))
+  }
+  if(!user.confirmed){
+    return next(new Error("email not confirmed",{cause:400}))
+  }
+  if(user.emailOtp.expiredIn<= Date.now()){
+    return next(new ExpiredError(),{cause:400})
+    }
+  if(!compare(otp,user.passwordOtp.otp)){
+    return next(new Error("in-valid otp ",{cause:400}))   
+  }
+
+
+  await UserModel.updateOne({_id:user._id},{
+    password:newPassword,
+    credentialChangeAt:Date.now(),
+    $unset:{
+      passwordOtp:""
+    }
+  })
+  sucessRes({res,status:202})
+}
+
+export const resendCode=async(req,res,next)=>{
+ const {email}=req.body
+ const user=await UserModel.findOne({email})
+ if(!user){
+    return next(new NotFoundError())
+  }
+  let type="emailOtp"
+  let event="confirmEmail"
+  if(req.url.includes('password')){
+  type="passwordOtp"
+  event="sendPasswordOTP"
+  }
+  const otp=createOtp()
+  user[type].otp=hash(otp)
+  user[type].expiredIn=Date.now()+60*1000
+  await user.save()
+  emailEmitter.emit(event,{name:user.name,otp,email:user.email})
+
+  return sucessRes({res,status:202})
+
+
+}
+
+
+export const socialLogin=async(req,res,next)=>{
+  const{idToken}=req.body
+  const ticket=await client.verifyIdToken({
+    idToken,
+    audience:process.env.audience
+  })
+  const {email,name}=ticket.getPayload()
+  let user=await UserModel.findOne({email})
+  if(user?.provider==providers.system){
+    return next(new Error("user system login",{cause:409}))
+  }
+  if(!user){
+    user =await UserModel.create({
+    email,
+    name,
+    confirmed:true,
+    provider:providers.google
+  })   
+  }
+  const payload = {
+    _id: user._id,
+    email: email,
+    phone: user.phone,
+    role: user.role,
+    credentialChangeAt :user.credentialChangeAt 
+  };
+  const accesstoken = jwt.sign(payload, process.env.user_access_signature, {
+    expiresIn: `1 H`,
+  });
+
+  const refreshToken = jwt.sign(payload, process.env.user_refresh_signature, {
+    expiresIn: `7 d`,
+  });
+  sucessRes({res,status:202,data:{
+    accesstoken ,refreshToken 
+  }})
+}
+
+

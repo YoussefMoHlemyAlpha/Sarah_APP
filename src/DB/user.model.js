@@ -1,5 +1,7 @@
 import {Schema,model} from "mongoose"
 import { hash } from "../utils/bcrypt.js"
+import { type } from "os"
+
 export const Roles={
     user:"user",
     admin:"admin"
@@ -67,6 +69,14 @@ export const schema=new Schema({
         otp:String,
         expiredIn:Date
     },
+    newEmail: {
+        type: String
+    },
+    newEmailOtp: {
+        otp: String,
+        expiredIn: Date
+    },
+
 credentialChangeAt    :{
         type:Date
     },

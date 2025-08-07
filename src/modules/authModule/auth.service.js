@@ -268,4 +268,134 @@ export const socialLogin=async(req,res,next)=>{
   }})
 }
 
+export const updateEmail = async (req, res, next) => {
+  try {
+    const { newEmail } = req.body;
+
+    // 1. Find the current user
+    const user = await UserModel.findById(req.user._id);
+    if (!user) return next(new Error("User not found"));
+
+    // 2. Validate new email
+    if (newEmail === user.email) {
+      return next(new Error("Enter unused email"));
+    }
+
+    const emailExists = await UserModel.findOne({ email: newEmail });
+    if (emailExists) {
+      return next(new Error("This email already exists"));
+    }
+
+    // 3. Initialize OTP objects if not present
+    if (!user.emailOtp) user.emailOtp = {};
+    if (!user.newEmailOtp) user.newEmailOtp = {};
+
+    // 4. Generate OTP for current (old) email
+    const oldEmailOtp = createOtp();
+    user.emailOtp.otp = hash(oldEmailOtp);
+    user.emailOtp.expiredIn = Date.now() + 60 * 1000;
+
+    emailEmitter.emit("confirmEmail", {
+      email: user.email,
+      userName: user.name,
+      otp: oldEmailOtp,
+    });
+
+    // 5. Generate OTP for new email
+    const newEmailOtp = createOtp();
+    user.newEmailOtp.otp = hash(newEmailOtp);
+    user.newEmailOtp.expiredIn = Date.now() + 60 * 1000;
+
+    // 6. Save new email and reset confirmation
+    user.newEmail = newEmail;
+    user.confirmed = false;
+
+    emailEmitter.emit("confirmEmail", {
+      email: newEmail, // Direct use of new email
+      userName: user.name,
+      otp: newEmailOtp,
+    });
+
+    // 7. Save user and send success response
+    await user.save();
+
+    sucessRes({ res });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+export const confirmUpdateEmail=async(req,res,next)=>{
+  
+  const{oldEmailOtp,newEmailOtp,email}=req.body
+  const user=await UserModel.findOne({email})
+  if(!user){
+    return next(new Error("User not found",{cause:404}));
+  }
+  if(user.emailOtp.expiredIn<= Date.now() ||user.newEmailOtp.expiredIn<= Date.now()){
+     return next(new Error("otp expired... please reconfirm your email"))
+    }
+  
+  if (!compare(oldEmailOtp,user.emailOtp.otp ||!compare(newEmailOtp,user.newEmailOtp.otp ))) {
+      return res.status(400).json({ message: "Invalid confirmation code" });
+    }
+    user.email=user.newEmail
+    user.confirmed=true
+    user.emailOtp=undefined
+    user.newEmail=undefined
+    user.newEmailOtp=undefined
+    await user.save()
+    sucessRes({res,data:user})
+}
+
+
+
+export const resendUpdateEmailOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return next(new NotFoundError("User not found"));
+    }
+
+    // If newEmail is not set, there's nothing to confirm
+    if (!user.newEmail) {
+      return next(new Error("No pending email update found"));
+    }
+
+    // Ensure nested OTP objects are initialized
+    if (!user.emailOtp) user.emailOtp = {};
+    if (!user.newEmailOtp) user.newEmailOtp = {};
+
+    // Generate OTP for current (old) email
+    const oldEmailOtp = createOtp();
+    user.emailOtp.otp = hash(oldEmailOtp);
+    user.emailOtp.expiredIn = Date.now() + 60 * 1000;
+
+    emailEmitter.emit("confirmEmail", {
+      email: user.email,
+      userName: user.name,
+      otp: oldEmailOtp,
+    });
+
+    // Generate OTP for new email
+    const newEmailOtp = createOtp();
+    user.newEmailOtp.otp = hash(newEmailOtp);
+    user.newEmailOtp.expiredIn = Date.now() + 60 * 1000;
+
+    emailEmitter.emit("confirmEmail", {
+      email: user.newEmail,
+      userName: user.name,
+      otp: newEmailOtp,
+    });
+
+    await user.save();
+
+    return sucessRes({ res, status: 202, message: "OTP resent successfully" });
+  } catch (err) {
+    next(err);
+  }
+};
 

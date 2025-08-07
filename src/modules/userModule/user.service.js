@@ -9,6 +9,8 @@ import { Template } from "../../utils/sendEmail/generateHTML.js";
 import { sendEmail } from "../../utils/sendEmail/sendEmail.js";
 import { hash } from "../../utils/bcrypt.js";
 import { createOtp, emailEmitter } from "../../utils/sendEmail/emailEvents.js";
+
+
 // sign up
 export const signup=async(req,res,next)=>{
 const{name,email,password,role,gender,phone}=req.body
@@ -44,11 +46,34 @@ sucessRes({res,data:user,status:201})
 
 
 export const getUserProfile= async(req,res,next)=>{
+
 const user =req.user
-console.log(user)
+
 //user.phone=decrypt(user.phone,process.env.cryptoKey)
 sucessRes({res,data:user,status:200})
 }
 
 
 
+export const shareProfile= async(req,res,next)=>{
+    const user = req.user;
+    const link=`${req.protocol}://${req.host}/user/user-profile/${user._id}`
+    sucessRes({res,data:link})
+    
+}
+
+export const userProfile=async(req,res,next)=>{
+  const id=req.params.id;
+  const user=await UserModel.findById(id).select('email name phone gender age')
+  sucessRes({res,data:user})
+}
+
+export const updateUser=async(req,res,next)=>{
+ const {name,phone}=req.body
+ const user=req.user
+ await UserModel.updateOne({_id:user._id},{
+    name,
+    phone
+ })
+ sucessRes({res})
+}

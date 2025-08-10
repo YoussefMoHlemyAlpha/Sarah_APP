@@ -45,21 +45,39 @@ export const decodeToken = async ({ tokenType = types.access, token, next }) => 
         if(user.credentialChangeAt?.getTime()>=payload.iat * 1000){
             return next(new Error("please login again",{cause:400}))
         }
-        return payload;
+         return user;
+;
     } catch (error) {
         return next(new Error(error.message, { cause: 400 }));
     }
 };
 
-export const auth = () => {
+export const auth = (activtion=true) => {
     return async (req, res, next) => {
         const { authorization } = req.headers;
-
         const user = await decodeToken({ token: authorization, next });
+   if(activtion)   {
+    console.log(user)
+    if(!user.isActive){
+        return next(new Error('this Account is deleted',{cause:404}))
+    }
+}
             req.user = user;
             next();
     };
 };
+
+/*export const isActive=()=>{
+return async(req,res,next)=>{
+    if(!user.isActive){
+        return next(new Error('this Account is deleted',{cause:404}))
+    }
+    next()
+}
+}*/
+
+
+
 
 
 export const allowTo=(...roles)=>{

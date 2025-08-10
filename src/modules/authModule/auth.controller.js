@@ -1,5 +1,5 @@
 import {Router} from "express"
-import { changePass, confirmEmail, confirmUpdateEmail, forgetPass, login, resendCode, resendUpdateEmailOtp, socialLogin, updateEmail } from "./auth.service.js"
+import { changePass, confirmEmail, confirmUpdateEmail, forgetPass, login, resendCode, resendUpdateEmailOtp, socialLogin, updateEmail, updatePassword } from "./auth.service.js"
 import { loginSchema,confirmEmailSchema } from "./auth.validation.js"
 import { validation } from "../../middleware/validation.middleware.js"
 import { auth } from "../../middleware/auth.middleware.js"
@@ -15,3 +15,4 @@ authRouter.post('/social-login',socialLogin)
 authRouter.patch('/update-email',auth(),updateEmail)
 authRouter.patch('/confirm-update-email',confirmUpdateEmail)
 authRouter.patch('/resend-change-email-otp',resendUpdateEmailOtp)
+authRouter.patch('/update-password',auth(),updatePassword)

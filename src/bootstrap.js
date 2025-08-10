@@ -9,6 +9,8 @@ export const bootstrap=(app,express)=>{
     app.use(cors())
 DBConnection()
 app.use(express.json())
+
+app.use('/uploads',express.static('./uploads'))
 app.use('/auth',authRouter)
 app.use('/user',userRouter)
 app.use('/message',messageRouter)

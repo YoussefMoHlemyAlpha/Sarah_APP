@@ -55,10 +55,15 @@ export const login = async (req, res, next) => {
 
   const payload = {
     _id: user._id,
+    name:user.name,
+    password:user.password,
     email: email,
     phone: user.phone,
     role: user.role,
-    credentialChangeAt :user.credentialChangeAt 
+    credentialChangeAt :user.credentialChangeAt ,
+    isActive:user.isActive,
+    profileImage:user.profileImage,
+    oldPasswords:user.oldPasswords
   };
 
   const accesstoken = jwt.sign(payload, accessSignature, {
@@ -136,16 +141,28 @@ export const confirmEmail = async (req, res, next) => {
     if(user.emailOtp.expiredIn<= Date.now()){
      return next(new Error("otp expired... please reconfirm your email"))
     }
-  
+    if (user.banStatus && user.banTime && user.banTime > Date.now()) {
+      const remainingBan = Math.ceil((user.banTime - Date.now()) / 1000);
+      return res.status(403).json({ message: `Too many attempts. Try again in ${remainingBan} seconds.` });
+    }
+
     if (!compare(otp,user.emailOtp.otp)) {
+      user.failedAttempts =user.failedAttempts + 1;
+      if(user.failedAttempts>4){ // it exactly suits the five attempts after trying in postman
+        user.banTime=Date.now()+5*60*1000
+        user.banStatus=true
+        user.failedAttempts = 0;
+      }
+        await user.save();
       return res.status(400).json({ message: "Invalid confirmation code" });
     }
-  await UserModel.updateOne({_id:user._id},{
-    confirmed:true,
-    $unset:{
-      emailOtp:""
-    }
-  })
+      
+    user.confirmed = true;
+    user.failedAttempts = 0;
+    user.banTime = null;
+    user.banStatus = false;
+    user.emailOtp = undefined;
+    await user.save();
     return res.status(200).json({ message: "Email confirmed successfully" });
   } catch (err) {
     next(err);
@@ -212,6 +229,13 @@ export const resendCode=async(req,res,next)=>{
  if(!user){
     return next(new NotFoundError())
   }
+
+  if (user.banStatus && user.banTime && user.banTime <= Date.now()) {
+    user.failedAttempts = 0;
+    user.banStatus = false;
+    user.banTime = null;
+  }
+
   let type="emailOtp"
   let event="confirmEmail"
   if(req.url.includes('password')){
@@ -220,7 +244,7 @@ export const resendCode=async(req,res,next)=>{
   }
   const otp=createOtp()
   user[type].otp=hash(otp)
-  user[type].expiredIn=Date.now()+60*1000
+  user[type].expiredIn=new Date(Date.now() + 120 * 1000);
   await user.save()
   emailEmitter.emit(event,{name:user.name,otp,email:user.email})
 
@@ -399,3 +423,38 @@ export const resendUpdateEmailOtp = async (req, res, next) => {
   }
 };
 
+
+export const updatePassword = async (req, res, next) => {
+  try {
+    const user = await UserModel.findById(req.user._id);
+    const { newPassword,oldPassword } = req.body;
+
+    if (!compare(oldPassword, user.password)) {
+      return next(new Error("old password not correct", { cause: 400 }));
+    }
+    if (!user) {
+      return next(new Error("User not found", { cause: 404 }));
+    }
+
+    // Compare new password with current
+    if (compare(newPassword, user.password)) {
+      return next(new Error("Enter unused password", { cause: 400 }));
+    }
+
+    // Compare new password with old ones
+    for (const old of user.oldPasswords || []) {
+      if (compare(newPassword, old)) {
+        return next(new Error("Enter unused password", { cause: 400 }));
+      }
+    }
+
+    user.oldPasswords.push(user.password);
+    user.password = newPassword;
+    user.credentialChangeAt=Date.now()
+    await user.save();
+
+    return sucessRes({ res, data: { message: "Password updated successfully" } });
+  } catch (err) {
+    next(err);
+  }
+};

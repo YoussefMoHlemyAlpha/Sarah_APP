@@ -1,7 +1,5 @@
 import { Schema, model, Types } from "mongoose";
 import { hash } from "../utils/bcrypt.js";
-import { type } from "os";
-import { ref } from "process";
 
 export const Roles = {
   user: "user",
@@ -18,6 +16,7 @@ export const providers = {
 Object.freeze(Roles);
 Object.freeze(Genders);
 Object.freeze(providers);
+
 export const schema = new Schema(
   {
     name: {
@@ -77,7 +76,6 @@ export const schema = new Schema(
       otp: String,
       expiredIn: Date,
     },
-
     credentialChangeAt: {
       type: Date,
     },
@@ -89,22 +87,21 @@ export const schema = new Schema(
       type: Types.ObjectId,
       ref: "user",
     },
-    oldPasswords:[{
-      type:String
-    }
-    ],
-    profileImage:{
-         type:String
+    oldPasswords: [{
+      type: String,
+    }],
+    profileImage: {
+      type: String,
     },
-    failedAttempts:{
-          type:Number
+    failedAttempts: {
+      type: Number,
     },
-    banTime:{
-      type:Date
+    banTime: {
+      type: Date,
     },
-    banStatus:{
-      type:Boolean,
-      default:false
+    banStatus: {
+      type: Boolean,
+      default: false,
     },
     provider: {
       type: String,
@@ -112,7 +109,7 @@ export const schema = new Schema(
       default: providers.system,
     },
   },
-  { timestamp: true }
+  { timestamps: true }
 );
 
 export const UserModel = model("user", schema);

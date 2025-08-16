@@ -1,5 +1,4 @@
 import joi from 'joi'
-import { ref } from 'process'
 import { Genders, Roles } from '../../DB/user.model.js'
 import { generalValidation } from '../../middleware/validation.middleware.js'
 
@@ -9,7 +8,6 @@ export const loginSchema={
     password:joi.string().min(8).max(20).required()
   })
 }
-
 
 export const confirmEmailSchema=joi.object({
   email:generalValidation.email.required(),

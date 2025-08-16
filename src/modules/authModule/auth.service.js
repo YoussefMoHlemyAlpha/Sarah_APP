@@ -16,6 +16,8 @@ import { hash } from "../../utils/bcrypt.js";
 import { ExpiredError, NotFoundError } from "../../utils/Error.js";
 import { OAuth2Client } from "google-auth-library";
 import { loginSchema } from "./auth.validation.js";
+import { revokeTokenModel } from "../../DB/revokeToken.model.js";
+
 const client= new OAuth2Client()
 
 
@@ -65,13 +67,16 @@ export const login = async (req, res, next) => {
     profileImage:user.profileImage,
     oldPasswords:user.oldPasswords
   };
-
+  
+  const jwtid=nanoid()
   const accesstoken = jwt.sign(payload, accessSignature, {
     expiresIn: `60000 ms`,
+    jwtid
   });
 
   const refreshToken = jwt.sign(payload, refreshSignature, {
     expiresIn: `7 d`,
+    jwtid
   });
  
   sucessRes({ res, data: { accesstoken, refreshToken }, status: 201 });
@@ -85,7 +90,7 @@ export const refreshToken = async (req, res, next) => {
   try {
     const { authorization } = req.headers;
 
-    const user = await decodeToken({
+    const {user,decoded} = await decodeToken({
       tokenType: types.refresh,
       token: authorization,
       next,
@@ -108,9 +113,10 @@ export const refreshToken = async (req, res, next) => {
       {
         _id: user._id,
         email: user.email,
+        
       },
       accessSignature,
-      { expiresIn: "20s" }
+      { expiresIn: "20s" ,jwtid:decoded.jti }
     );
 
     sucessRes({
@@ -458,3 +464,23 @@ export const updatePassword = async (req, res, next) => {
     next(err);
   }
 };
+
+export const logout=async(req,res,next)=>{
+  const tokenData=req.decoded
+  const user=req.user
+  await revokeTokenModel.create({
+    userId:user._id,
+    jti:tokenData.jti,
+    expireIn:tokenData.iat+7*24*60*60,
+  })
+sucessRes({res})
+
+}
+
+export const logoutForAllDevices=async(req,res,next)=>{
+const user=req.user
+user.credentialChangeAt=Date.now()
+await user.save();
+sucessRes({res})
+
+}

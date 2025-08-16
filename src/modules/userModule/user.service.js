@@ -11,7 +11,8 @@ import { hash } from "../../utils/bcrypt.js";
 import { createOtp, emailEmitter } from "../../utils/sendEmail/emailEvents.js";
 import { NotFoundError } from "../../utils/Error.js";
 import { Roles } from "../../DB/user.model.js";
-
+import fs from "fs"
+import path from "path";
 // sign up
 export const signup=async(req,res,next)=>{
 const{name,email,password,role,gender,phone}=req.body
@@ -38,7 +39,7 @@ const user=await create({
         expiredIn:Date.now()+60*1000
     }}
 })
-
+console.log(user)
 emailEmitter.emit('confirmEmail',{email:user.email,otp,userName:user.name})
 sucessRes({res,data:user,status:201})
 
@@ -66,7 +67,7 @@ export const shareProfile= async(req,res,next)=>{
 export const userProfile=async(req,res,next)=>{
   const id=req.params.id;
   const user=await UserModel.findById(id).select('email name phone gender age profileImage')
-  user.profileImage=`${req.protocol}://${req.host}/${user.profileImage}`
+  user.profileImage = `${req.protocol}://${req.get('host')}/${user.profileImage}`;
   sucessRes({res,data:user})
 }
 
@@ -118,21 +119,54 @@ export const restoreAccount=async(req,res,next)=>{
 }
 
 
-export const hardDelete=async(req,res,next)=>{
-    const id=req.params.id
-    const user=await UserModel.findById(id)
-    if(user.role==Roles.admin){
-        return next(new Error("admin account can not be deleted",{cause:400}))
+export const hardDelete = async (req, res, next) => {
+  const id = req.params.id;
+  
+  try {
+    const user = await UserModel.findById(id);
+    
+    if (user.role === Roles.admin) {
+      return next(new Error("Admin account cannot be deleted", { cause: 400 }));
     }
-    await user.deleteOne()
-    sucessRes({res})
-}
+    
+    const folderPath = user.profileImage.split('/');
+    folderPath.pop(); // Remove the file name to get the folder path
+    const folder = folderPath.join('/');
+    console.log(folder);
+
+    // Delete folder if it exists
+    const folderFullPath = path.resolve(`./${folder}`);
+    if (fs.existsSync(folderFullPath)) {
+      fs.rmSync(folderFullPath, { recursive: true, force: true });
+    }
+
+    await user.deleteOne();
+    sucessRes({res}); 
+  } catch (err) {
+    next(err);
+  }
+};
 
 
-export const uploadImage=async(req,res,next)=>{
-    console.log(req.files)
-    const user=req.user
-    user.profileImage=req.dest+"/"+req.file.filename
-    await user.save()
-    sucessRes({res})
-}
+
+export const uploadImage = async (req, res, next) => {
+  try {
+    console.log(req.files);
+    const user = req.user;
+
+    if (user.profileImage) {
+      // Remove old profile image if exists
+      const oldImagePath = path.resolve(`./${user.profileImage}`);
+      if (fs.existsSync(oldImagePath)) {
+        fs.rmSync(oldImagePath);
+      }
+    }
+
+    // Save the new profile image path
+    user.profileImage = `${req.dest}/${req.file.filename}`;
+    await user.save();
+    sucessRes({res}); 
+  } catch (err) {
+    next(err);
+  }
+};

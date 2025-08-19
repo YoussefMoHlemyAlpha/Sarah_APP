@@ -91,7 +91,8 @@ export const schema = new Schema(
       type: String,
     }],
     profileImage: {
-      type: String,
+     public_id:String,
+     secure_url:String
     },
     failedAttempts: {
       type: Number,

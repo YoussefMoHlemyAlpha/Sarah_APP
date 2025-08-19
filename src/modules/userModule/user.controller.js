@@ -5,8 +5,9 @@ import { allowTo, auth } from "../../middleware/auth.middleware.js"
 import { Roles } from "../../DB/user.model.js"
 import { signupSchema } from "../authModule/auth.validation.js"
 import { validation } from "../../middleware/validation.middleware.js"
-import { getUserProfileSchema } from "./user.validation.js"
-import { uploadFile } from "../../utils/multer/multer.js"
+import { getUserProfileSchema, uploadImageSchema } from "./user.validation.js"
+import { fileTypes, uploadFile } from "../../utils/multer/multer.js"
+import { cloudUploadFile } from "../../utils/multer/multer.cloud.js"
 
 export const userRouter=Router()
 userRouter.post('/signup',validation(signupSchema),signup)
@@ -18,5 +19,5 @@ userRouter.get('/user-profile/:id',userProfile)
 userRouter.patch('/update',auth(),updateUser)
 userRouter.patch('/restore/:id',auth(false),restoreAccount)
 userRouter.delete('/hard-delete/:id',auth(),allowTo(Roles.user),hardDelete)
-userRouter.patch('/profile-image',auth(),uploadFile("profile").single('image'),uploadImage)
+userRouter.patch('/profile-image',auth(), cloudUploadFile({ allowedTypes: fileTypes.image }).single('image'), uploadImage);
 userRouter.patch('/cover-image',auth(),uploadFile("cover").array('image',5),uploadImage)

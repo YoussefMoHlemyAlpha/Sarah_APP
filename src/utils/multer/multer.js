@@ -2,8 +2,21 @@ import multer from "multer";
 import fs from 'fs'
 import path from 'path'
 
+export const fileTypes={
+    image:[
+        'image/gif',
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/jpg'
+    ],
+    video:[
+        'video/mp4',
+        'video/webm'
+    ]
+};
 
-export const uploadFile=(folder="general")=>{
+export const uploadFile=({folder="general",type=fileTypes.image})=>{
 
 const storage=multer.diskStorage({
 destination:(req,file,callback)=>{
@@ -22,7 +35,15 @@ filename:(req,file,callback)=>{
     callback(null,name)
 }
 })
+
+const fileFilter=(req,file,callback)=>{
+    if(type.includes(file.minetype)){
+       return callback(null,true)
+    }
+    return callback(new Error('invalid file type',{cause:400}),false)
+}
     return multer({
-        storage
+        storage,
+        fileFilter,
     })
 }

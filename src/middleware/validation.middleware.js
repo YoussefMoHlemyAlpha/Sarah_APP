@@ -2,8 +2,8 @@ import { loginSchema } from "../modules/authModule/auth.validation.js"
 import joi from "joi"
 import { Genders,Roles } from "../DB/user.model.js"
 import { isValidObjectId } from "mongoose"
-
-const dataMethods =['body','params','query']
+import { fileTypes } from "../utils/multer/multer.js"
+const dataMethods =['body','params','query','file']
 
 export const validation=(schema)=>{
   return(req,res,next)=>{
@@ -38,5 +38,15 @@ export const generalValidation={
    }else{
       return helpers.message('in-valid objectId')
    }
- })
+ }),
+ file:joi.object({        
+        fieldname:joi.string().valid('image').required(),
+        originalname:joi.string().required(),
+        encoding:joi.string().required(),
+        minetype:joi.string().valid(...fileTypes.image,...fileTypes.video).required(),
+        destination:joi.string().required(),
+        filename:joi.string().required(),
+        path:joi.string().required(),
+        size:joi.number().max(1024*1024*50).required()
+    })
 }

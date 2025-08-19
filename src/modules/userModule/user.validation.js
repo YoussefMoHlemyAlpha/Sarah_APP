@@ -1,5 +1,6 @@
 import joi from 'joi'
 import { generalValidation } from '../../middleware/validation.middleware.js'
+import { fileTypes } from '../../utils/multer/multer.js'
 
 export const getUserProfileSchema={
 params:joi.object({
@@ -7,3 +8,6 @@ params:joi.object({
 })
 }
 
+export const uploadImageSchema={
+    file: generalValidation.file.required()
+}

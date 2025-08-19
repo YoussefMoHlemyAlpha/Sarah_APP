@@ -13,6 +13,8 @@ import { NotFoundError } from "../../utils/Error.js";
 import { Roles } from "../../DB/user.model.js";
 import fs from "fs"
 import path from "path";
+import { log } from "console";
+import { cloudConfig } from "../../utils/multer/cloudinary.js";
 // sign up
 export const signup=async(req,res,next)=>{
 const{name,email,password,role,gender,phone}=req.body
@@ -150,23 +152,23 @@ export const hardDelete = async (req, res, next) => {
 
 
 export const uploadImage = async (req, res, next) => {
-  try {
-    console.log(req.files);
-    const user = req.user;
+    try {
+        const user = req.user;
+        const file = req.file;
 
-    if (user.profileImage) {
-      // Remove old profile image if exists
-      const oldImagePath = path.resolve(`./${user.profileImage}`);
-      if (fs.existsSync(oldImagePath)) {
-        fs.rmSync(oldImagePath);
-      }
+        if (!file) {
+            return res.status(400).json({ message: "No file uploaded." });
+        }
+        const {secure_url,public_id}=await cloudConfig().uploader.upload(file.path,{
+          folder:`${process.env.APP_NAME}/users/${user.name}_${user._id}/profile`
+        })
+        if(user.profileImage?.public_id){
+          await cloudConfig().uploader.destroy(user.profileImage.public_id)
+        }
+        user.profileImage={secure_url,public_id}
+        await user.save();
+      sucessRes({res,data:user})
+    } catch (err) {
+        next(err);
     }
-
-    // Save the new profile image path
-    user.profileImage = `${req.dest}/${req.file.filename}`;
-    await user.save();
-    sucessRes({res}); 
-  } catch (err) {
-    next(err);
-  }
 };

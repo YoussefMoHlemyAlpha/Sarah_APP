@@ -61,7 +61,6 @@ export const auth = (activtion=true) => {
         const { authorization } = req.headers;
         const {user,decoded} = await decodeToken({ token: authorization, next });
    if(activtion)   {
-    console.log(user)
     if(!user.isActive){
         return next(new Error('this Account is deleted',{cause:404}))
     }
@@ -88,7 +87,6 @@ return async(req,res,next)=>{
 export const allowTo=(...Roles)=>{
         return async (req, res, next) => {
         const user=req.user
-        console.log(Roles)
         if(!Roles.includes(user.role)){
             return next(new Error('you are not authorized to access this end point'))
         }

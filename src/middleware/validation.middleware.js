@@ -3,7 +3,7 @@ import joi from "joi"
 import { Genders,Roles } from "../DB/user.model.js"
 import { isValidObjectId } from "mongoose"
 import { fileTypes } from "../utils/multer/multer.js"
-const dataMethods =['body','params','query','file']
+const dataMethods =['body','params','query','file','files']
 
 export const validation=(schema)=>{
   return(req,res,next)=>{
@@ -40,10 +40,10 @@ export const generalValidation={
    }
  }),
  file:joi.object({        
-        fieldname:joi.string().valid('image').required(),
+        fieldname:joi.string().valid('image','images').required(),
         originalname:joi.string().required(),
         encoding:joi.string().required(),
-        minetype:joi.string().valid(...fileTypes.image,...fileTypes.video).required(),
+        mimetype:joi.string().valid(...fileTypes.image,...fileTypes.video).required(),
         destination:joi.string().required(),
         filename:joi.string().required(),
         path:joi.string().required(),

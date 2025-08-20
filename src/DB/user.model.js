@@ -94,6 +94,14 @@ export const schema = new Schema(
      public_id:String,
      secure_url:String
     },
+    coverImages:[
+      {
+
+     public_id:String,
+     secure_url:String
+    }
+  ],
+
     failedAttempts: {
       type: Number,
     },

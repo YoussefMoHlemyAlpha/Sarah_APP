@@ -15,6 +15,7 @@ import fs from "fs"
 import path from "path";
 import { log } from "console";
 import { cloudConfig } from "../../utils/multer/cloudinary.js";
+import{uploadSingleFile,destorySingleFile, deleteManyFile, deleteByPrefix, deleteFolder} from '../../utils/multer/cloud.services.js'
 // sign up
 export const signup=async(req,res,next)=>{
 const{name,email,password,role,gender,phone}=req.body
@@ -68,7 +69,7 @@ export const shareProfile= async(req,res,next)=>{
 
 export const userProfile=async(req,res,next)=>{
   const id=req.params.id;
-  const user=await UserModel.findById(id).select('email name phone gender age profileImage')
+  const user=await UserModel.findById(id).select('email name phone gender age profileImage coverImages')
   user.profileImage = `${req.protocol}://${req.get('host')}/${user.profileImage}`;
   sucessRes({res,data:user})
 }
@@ -126,23 +127,20 @@ export const hardDelete = async (req, res, next) => {
   
   try {
     const user = await UserModel.findById(id);
-    
-    if (user.role === Roles.admin) {
-      return next(new Error("Admin account cannot be deleted", { cause: 400 }));
+    if(!user){
+      return next (new NotFoundError())
     }
     
-    const folderPath = user.profileImage.split('/');
-    folderPath.pop(); // Remove the file name to get the folder path
-    const folder = folderPath.join('/');
-    console.log(folder);
+   if (user.role === Roles.admin) {
+     return next(new Error("Admin account cannot be deleted", { cause: 400 }));
+ }
+    
 
-    // Delete folder if it exists
-    const folderFullPath = path.resolve(`./${folder}`);
-    if (fs.existsSync(folderFullPath)) {
-      fs.rmSync(folderFullPath, { recursive: true, force: true });
-    }
+    await deleteByPrefix({prefix:`users/${user.name}_${user._id}`})
 
-    await user.deleteOne();
+    //await deleteFolder({folder:`users/${user.name}_${user._id}`})
+    
+    //await user.deleteOne();
     sucessRes({res}); 
   } catch (err) {
     next(err);
@@ -151,7 +149,7 @@ export const hardDelete = async (req, res, next) => {
 
 
 
-export const uploadImage = async (req, res, next) => {
+export const profileImage = async (req, res, next) => {
     try {
         const user = req.user;
         const file = req.file;
@@ -159,11 +157,12 @@ export const uploadImage = async (req, res, next) => {
         if (!file) {
             return res.status(400).json({ message: "No file uploaded." });
         }
-        const {secure_url,public_id}=await cloudConfig().uploader.upload(file.path,{
-          folder:`${process.env.APP_NAME}/users/${user.name}_${user._id}/profile`
+        const {secure_url,public_id}=uploadSingleFile({
+          path:file.path,
+          folder:`users/${user.name}_${user._id}/profile`
         })
         if(user.profileImage?.public_id){
-          await cloudConfig().uploader.destroy(user.profileImage.public_id)
+          await destorySingleFile({public_id:user.profileImage.public_id})
         }
         user.profileImage={secure_url,public_id}
         await user.save();
@@ -172,3 +171,31 @@ export const uploadImage = async (req, res, next) => {
         next(err);
     }
 };
+
+
+export const coverImages=async(req,res,next)=>{
+  const coverImages=[]
+  const user=req.user;
+  for (const file of req.files) {
+    const{public_id,secure_url}= await uploadSingleFile({
+          path:file.path,
+          folder:`users/${user.name}_${user._id}/cover`
+        })
+        coverImages.push({
+          public_id,secure_url
+        })
+  }
+  const public_ids=[]
+  if(user.coverImages?.length>0){
+  user.coverImages.map((image)=>{
+    public_ids.push(image.public_id)
+  })
+  await deleteManyFile({public_ids})
+  }
+
+  user.coverImages=coverImages
+  await user.save()
+  sucessRes({res,data:user})
+
+}
+

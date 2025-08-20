@@ -10,4 +10,12 @@ params:joi.object({
 
 export const uploadImageSchema={
     file: generalValidation.file.required()
+    
+}
+
+export const coverImagesSchema={
+
+    files:joi.array().items(generalValidation.file).max(3).required()
+
+
 }

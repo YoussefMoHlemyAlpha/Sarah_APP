@@ -32,6 +32,10 @@ A robust, modular Node.js backend for authentication, messaging, and user manage
 - **OTP Security:** Email/password changes require OTP, with ban logic for repeated failures.
 - **Social Login:** Google OAuth2 login support.
 - **Password History:** Prevents reuse of old passwords.
+- **MongoDB Connection:** Uses Mongoose to connect to a MongoDB database.
+- **Environment Configuration:** Reads connection URI from environment variables.
+- **Colorful Logging:** Utilizes Chalk for clear, color-coded console messages.
+- **Error Handling:** Gracefully handles connection errors.
 
 ---
 

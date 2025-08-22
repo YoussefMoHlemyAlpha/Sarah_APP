@@ -8,6 +8,17 @@ export const uploadSingleFile=async({path,folder="others"})=>{
         return {public_id,secure_url}
 }
 
+export const uploadMultiFiles=async({paths=[],dest})=>{
+  const images=[]
+  for (const path of paths) {
+    const {public_id,secure_url}=await uploadSingleFile({path,dest})
+    images.push({public_id,secure_url})
+    
+  }
+
+  return images
+
+}
 
 export const  destorySingleFile=async({public_id})=>{
     cloudConfig().uploader.destroy(public_id)

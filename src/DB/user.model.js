@@ -121,4 +121,4 @@ export const schema = new Schema(
   { timestamps: true }
 );
 
-export const UserModel = model("user", schema);
+export const UserModel = model("User", schema);

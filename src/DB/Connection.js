@@ -1,13 +1,14 @@
+import chalk from "chalk";
 import  mongoose from "mongoose"
 
 export const DBConnection=async()=>{
 await mongoose.connect(process.env.URI)
 .then(()=>{
-    console.log("DB connected Successfully");
+    console.log(chalk.bgGreen("DB connected Successfully"));
     
 })
 .catch((err)=>{
-console.log("DB Connection Failed",err)
+console.log(chalk.bgRed("DB Connection Failed",err))
 })
 
 }

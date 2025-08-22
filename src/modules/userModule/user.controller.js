@@ -8,8 +8,10 @@ import { validation } from "../../middleware/validation.middleware.js"
 import { coverImagesSchema, getUserProfileSchema, uploadImageSchema } from "./user.validation.js"
 import { fileTypes, uploadFile } from "../../utils/multer/multer.js"
 import { cloudUploadFile } from "../../utils/multer/multer.cloud.js"
+import { messageRouter } from "../messageModule/message.controller.js"
 
 export const userRouter=Router()
+userRouter.use('/:id/messages',messageRouter)
 userRouter.post('/signup',validation(signupSchema),signup)
 userRouter.post('/refresh',refreshToken)
 userRouter.get('/',auth(),allowTo(Roles.user),getUserProfile)

@@ -48,6 +48,9 @@ src/
     Connection.js
     DBServices.js
     user.model.js
+    revokeToken.model.js
+    message.model.js
+    
   middleware/
     auth.middleware.js
     validation.middleware.js
@@ -63,6 +66,12 @@ src/
       user.controller.js
       user.service.js
   utils/
+   multer/
+     cloud.services.js
+     cloudinary.js
+     multer.cloud.js
+     multer.js
+
     bcrypt.js
     crypto.js
     Error.js

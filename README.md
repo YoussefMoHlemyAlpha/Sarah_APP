@@ -36,7 +36,8 @@ A robust, modular Node.js backend for authentication, messaging, and user manage
 - **Environment Configuration:** Reads connection URI from environment variables.
 - **Colorful Logging:** Utilizes Chalk for clear, color-coded console messages.
 - **Error Handling:** Gracefully handles connection errors.
-
+- **Morgan:**         MiddleWare to moniter requests status        
+   
 ---
 
 ## Project Structure
@@ -101,7 +102,10 @@ package.json
 Manages user data, profile updates, and retrieval.
 
 ### Message Module (`messageModule`)
-Handles user-to-user messaging.
+
+-send Message
+-get Message 
+-get All Messages
 
 ---
 
@@ -157,17 +161,7 @@ Handles user-to-user messaging.
 
 ---
 
-## API Highlights
 
-- **Login:** System and Google login.
-- **Email Confirmation:** OTP-based, with ban after multiple failed attempts.
-- **Password Reset:** OTP sent to email, with expiry and ban logic.
-- **Email Update:** Dual OTP confirmation for old and new emails.
-- **Token Refresh:** Secure refresh token endpoint.
-- **Resend OTP:** For email/password/email update.
-- **Password History:** Prevents reuse of previous passwords.
-
----
 
 ## Security Features
 
